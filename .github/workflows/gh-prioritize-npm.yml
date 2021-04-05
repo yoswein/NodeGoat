@@ -1,0 +1,41 @@
+name: NPM Prioritize Scan
+on: [push, pull_request]
+
+jobs:
+  prioritize:
+    name: Node.js
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["10.x"]
+
+    steps:
+      - name: Checkout https://github.com/${{ github.repository }}@${{ github.ref }}
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npm run cy:verify
+      - name: WhiteSource Unified Agent Scan
+        env:
+          APIKEY: ${{secrets.APIKEY}}
+        run: |
+          curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
+          echo UA downloaded successfully
+          export WS_ENABLEIMPACTANALYSIS=true
+          export WS_REQUIREKNOWNSHA1=false
+          export WS_RESOLVEALLDEPENDENCIES=false
+          export WS_NPM_RESOLVEDEPENDENCIES=true
+          export WS_NPM_RESOLVELOCKFILE=false
+          export WS_INCLUDES='**/*c **/*cc **/*cp **/*cpp **/*cxx **/*c++ **/*h **/*hh **/*hpp **/*hxx **/*h++ **/*m **/*mm **/*pch **/*c# **/*cs **/*csharp **/*go **/*goc **/*js **/*pl **/*plx **/*pm **/*ph **/*cgi **/*fcgi **/*pod **/*psgi **/*al **/*perl **/*t **/*pl6 **/*p6m **/*p6l **/*pm6 **/*nqp **/*6pl **/*6pm **/*p6 **/*php **/*py **/*rb **/*swift **/*java **/*clj **/*cljx **/*cljs **/*cljc **/*jar **/*egg","dll **/*tar.gz **/*tgz **/*zip **/*whl **/*gem **/*apk **/*air **/*dmg **/*exe **/*gem **/*gzip **/*msi **/*nupkg **/*swc **/*swf **/tar.bz2 **/pkg.tar.xz **/(u)?deb **/(a)?rpm'
+          java -jar wss-unified-agent.jar -appPath ./package.json -d ./ -apikey $APIKEY -product GH_${{ github.event.repository.name }} -project ${{ github.ref }}_Prioritize
